@@ -1,2 +1,103 @@
 Hello World!!!
-https://myxueduph-my.sharepoint.com/:x:/g/personal/20190018426_my_xu_edu_ph/EYUOpPPkiqdGiMIOs7Vdvx8BYYVBzQPRJQsck8BtppS0xA?e=olyYE9
+
+module counter (  input clk,               
+                  input rst, 
+                  input reload,            
+                  //output reg [4:0] cnt_val,
+                  output reg valid,
+                  output reg max);    
+
+    reg [4:0] cnt_val;
+
+    always @ (posedge clk) begin
+        if (! rst) 
+            begin
+                cnt_val <= 0;
+                max <= 0;
+                valid <= 0;
+            end
+        else 
+            if (reload != 1) begin
+                valid <= 1;
+                if (cnt_val == 5'd27)
+                    max <= 1;
+                else
+                    cnt_val <= cnt_val + 1;
+            end
+            else begin
+                cnt_val <= 0;
+                max <= 0;
+                valid <= 0;
+            end
+        end
+endmodule
+
+module tb_counter;
+  reg clk;                    
+  reg rst;
+  reg reload;
+  wire valid;
+  wire max;                      
+  //wire [4:0] cnt_val;              
+
+
+  counter   c0 ( .clk (clk),
+                 .rst (rst),
+                 .reload (reload),
+                 .valid (valid),
+                 .max (max));
+                 //.cnt_val (cnt_val));
+
+  always #5 clk = ~clk;
+
+  initial begin
+
+    $dumpfile("counter_wave.vcd");
+    $dumpvars(0,tb_counter);
+
+    clk <= 0;
+    rst <= 0;
+    reload <= 0;
+
+    
+    #20   rst <= 1;
+    #320 reload <= 1;
+    #340 reload <= 0;
+    //#200   rst <= 0;
+    //#300   rst <= 1;
+
+    #500 $finish;
+  end
+endmodule
+
+module reverse_bit (input [7:0] data,
+                    output [7:0] reversed_data);
+
+genvar i;
+generate
+    for (i = 0; i < 8; i = i + 1) begin : reverse_bits
+        assign reversed_data[i] = data[7 - i];
+    end
+endgenerate
+
+endmodule
+
+
+module item12 (input [7:0] data_a,
+               input [7:0] data_b,
+               output reg [7:0] data_out);
+
+    wire [7:0] data_a_sum;
+    wire [7:0] data_b_sum;
+
+    reverse_bit reverse_bit_1 (.data (data_a),
+                                   .reversed_data (data_a_sum));
+
+    reverse_bit reverse_bit_2 (.data (data_b),
+                                .reversed_data (data_b_sum));
+
+    always @ (*)
+     
+        data_out = data_a_sum + data_b_sum;
+
+endmodule
