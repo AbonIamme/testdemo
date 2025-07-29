@@ -1,103 +1,145 @@
-Hello World!!!
 
-module counter (  input clk,               
-                  input rst, 
-                  input reload,            
-                  //output reg [4:0] cnt_val,
-                  output reg valid,
-                  output reg max);    
+Private Sub UserForm_Initialize()
+    Dim ws As Worksheet
+    cmbSheets.Clear
+    For Each ws In ThisWorkbook.Sheets
+        cmbSheets.AddItem ws.Name
+    Next ws
+End Sub
 
-    reg [4:0] cnt_val;
+Private Sub btnBrowse1_Click()
+    Dim filePath As String
+    filePath = Application.GetOpenFilename("Images (*.jpg; *.jpeg; *.png), *.jpg; *.jpeg; *.png", , "Select Image 1")
+    If filePath <> "False" Then
+        txtImage1.Text = filePath
+    End If
+End Sub
 
-    always @ (posedge clk) begin
-        if (! rst) 
-            begin
-                cnt_val <= 0;
-                max <= 0;
-                valid <= 0;
-            end
-        else 
-            if (reload != 1) begin
-                valid <= 1;
-                if (cnt_val == 5'd27)
-                    max <= 1;
-                else
-                    cnt_val <= cnt_val + 1;
-            end
-            else begin
-                cnt_val <= 0;
-                max <= 0;
-                valid <= 0;
-            end
-        end
-endmodule
+Private Sub btnBrowse2_Click()
+    Dim filePath As String
+    filePath = Application.GetOpenFilename("Images (*.jpg; *.jpeg; *.png), *.jpg; *.jpeg; *.png", , "Select Image 2")
+    If filePath <> "False" Then
+        txtImage2.Text = filePath
+    End If
+End Sub
 
-module tb_counter;
-  reg clk;                    
-  reg rst;
-  reg reload;
-  wire valid;
-  wire max;                      
-  //wire [4:0] cnt_val;              
+Private Sub btnInsert_Click()
+    Dim ws As Worksheet
+    Dim img1Path As String, img2Path As String
+    Dim w1 As Single, h1 As Single, w2 As Single, h2 As Single
+    Dim top1 As Double, left1 As Double, left2 As Double
+    Dim maxBottom As Double
+    Dim shp As Shape
+    Dim descText As String
+    Dim imgCount As Integer
+    Dim hasPrevious As Boolean
+
+    ' === Validate inputs ===
+    If cmbSheets.Value = "" Then
+        MsgBox "Please select a worksheet.", vbExclamation
+        Exit Sub
+    End If
+
+    Set ws = ThisWorkbook.Sheets(cmbSheets.Value)
+
+    On Error Resume Next
+    w1 = CSng(txtWidth1.Text): h1 = CSng(txtHeight1.Text)
+    w2 = CSng(txtWidth2.Text): h2 = CSng(txtHeight2.Text)
+    On Error GoTo 0
+
+    If w1 = 0 Or h1 = 0 Or w2 = 0 Or h2 = 0 Then
+        MsgBox "Please enter valid width and height for both images.", vbExclamation
+        Exit Sub
+    End If
+
+    img1Path = txtImage1.Text
+    img2Path = txtImage2.Text
+    If Dir(img1Path) = "" Or Dir(img2Path) = "" Then
+        MsgBox "One or both image paths are invalid.", vbExclamation
+        Exit Sub
+    End If
+
+    descText = Trim(txtDescription.Text)
+    left1 = ws.Range("D7").Left
+    top1 = ws.Range("D7").Top
+    maxBottom = 0
+    imgCount = 0
+
+    ' === Find last inserted Image1 using AlternativeText ===
+    For Each shp In ws.Shapes
+        If shp.Type = msoPicture And shp.AlternativeText Like "Image1_*" Then
+            hasPrevious = True
+            If shp.Top + shp.Height > maxBottom Then
+                maxBottom = shp.Top + shp.Height
+            End If
+            Dim num As Integer
+            num = Val(Split(shp.AlternativeText, "_")(1))
+            If num > imgCount Then imgCount = num
+        End If
+    Next shp
+
+    ' === Determine position ===
+    If hasPrevious Then
+        top1 = maxBottom + 144 ' 2 inches below last image1
+    Else
+        If descText <> "" Then ws.Range("C4").Value = descText
+    End If
+
+    imgCount = imgCount + 1 ' Increment for new tag
+
+    ' === Optional description (run always if there's description) ===
+    If descText <> "" Then
+    Dim descBox As Shape
+    Set descBox = ws.Shapes.AddTextbox( _
+        Orientation:=msoTextOrientationHorizontal, _
+        Left:=ws.Range("C" & ws.Range("D7").Row).Left, _
+        Top:=top1, Width:=400, Height:=30)
+    With descBox
+        .TextFrame.Characters.Text = descText
+        .AlternativeText = "Description_" & Format(imgCount + 1, "000")
+        .Fill.ForeColor.RGB = RGB(202, 237, 251)
+        .Line.Visible = msoFalse
+    End With
+
+    ' Get the row where the textbox is placed
+    Dim descRow As Long
+    descRow = ws.Cells(descBox.TopLeftCell.Row, 1).Row
+
+    '  Fill 3 rows: the row of the textbox, and 2 rows below it
+    Dim i As Long
+    For i = descRow To descRow + 2
+        On Error Resume Next
+        ws.Rows(i).Interior.Color = RGB(202, 237, 251)
+        On Error GoTo 0
+    Next i
+
+    ' Move down for next image positioning
+    top1 = descBox.Top + descBox.Height + 10
+    End If
 
 
-  counter   c0 ( .clk (clk),
-                 .rst (rst),
-                 .reload (reload),
-                 .valid (valid),
-                 .max (max));
-                 //.cnt_val (cnt_val));
+    ' === Insert Image1 using Shapes.AddPicture (now supports AlternativeText) ===
+    Dim img1 As Shape
+    Set img1 = ws.Shapes.AddPicture( _
+        Filename:=img1Path, _
+        LinkToFile:=msoFalse, _
+        SaveWithDocument:=msoCTrue, _
+        Left:=left1, Top:=top1, _
+        Width:=w1, Height:=h1)
+    img1.AlternativeText = "Image1_" & Format(imgCount, "000")
 
-  always #5 clk = ~clk;
+    ' === Insert Image2 1 inch to the right ===
+    left2 = left1 + w1 + 72
+    Dim img2 As Shape
+    Set img2 = ws.Shapes.AddPicture( _
+        Filename:=img2Path, _
+        LinkToFile:=msoFalse, _
+        SaveWithDocument:=msoCTrue, _
+        Left:=left2, Top:=top1, _
+        Width:=w2, Height:=h2)
+    img2.AlternativeText = "Image2_" & Format(imgCount, "000")
 
-  initial begin
-
-    $dumpfile("counter_wave.vcd");
-    $dumpvars(0,tb_counter);
-
-    clk <= 0;
-    rst <= 0;
-    reload <= 0;
-
-    
-    #20   rst <= 1;
-    #320 reload <= 1;
-    #340 reload <= 0;
-    //#200   rst <= 0;
-    //#300   rst <= 1;
-
-    #500 $finish;
-  end
-endmodule
-
-module reverse_bit (input [7:0] data,
-                    output [7:0] reversed_data);
-
-genvar i;
-generate
-    for (i = 0; i < 8; i = i + 1) begin : reverse_bits
-        assign reversed_data[i] = data[7 - i];
-    end
-endgenerate
-
-endmodule
+    MsgBox "Image set " & imgCount & " inserted successfully!", vbInformation
+End Sub
 
 
-module item12 (input [7:0] data_a,
-               input [7:0] data_b,
-               output reg [7:0] data_out);
-
-    wire [7:0] data_a_sum;
-    wire [7:0] data_b_sum;
-
-    reverse_bit reverse_bit_1 (.data (data_a),
-                                   .reversed_data (data_a_sum));
-
-    reverse_bit reverse_bit_2 (.data (data_b),
-                                .reversed_data (data_b_sum));
-
-    always @ (*)
-     
-        data_out = data_a_sum + data_b_sum;
-
-endmodule
